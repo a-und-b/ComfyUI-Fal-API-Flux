@@ -1,7 +1,6 @@
 import os
 import fal_client
 import folder_paths
-import configparser
 import base64
 import io
 from PIL import Image
@@ -16,17 +15,8 @@ logger = logging.getLogger(__name__)
 
 class BaseFalAPIFluxNode:
     def __init__(self):
-        self.api_key = self.get_api_key()
-        os.environ['FAL_KEY'] = self.api_key
+        self.api_key = None
         self.api_endpoint = None
-
-    def get_api_key(self):
-        config = configparser.ConfigParser()
-        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.ini')
-        if os.path.exists(config_path):
-            config.read(config_path)
-            return config.get('falai', 'api_key', fallback=None)
-        return None
     
     def set_api_endpoint(self, endpoint):
         self.api_endpoint = endpoint
@@ -42,6 +32,7 @@ class BaseFalAPIFluxNode:
                 "guidance_scale": ("FLOAT", {"default": 3.5, "min": 0.1, "max": 40.0}),
                 "num_images": ("INT", {"default": 1, "min": 1, "max": 4}),
                 "enable_safety_checker": ("BOOLEAN", {"default": True}),
+                "api_key": ("STRING", {"default": "", "multiline": False}),
             },
             "optional": {
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
@@ -52,9 +43,15 @@ class BaseFalAPIFluxNode:
     FUNCTION = "generate"
     CATEGORY = "image generation"
 
-    def prepare_arguments(self, prompt, width, height, num_inference_steps, guidance_scale, num_images, enable_safety_checker, seed=None, **kwargs):
+    def prepare_arguments(self, prompt, width, height, num_inference_steps, guidance_scale, num_images, enable_safety_checker, api_key, seed=None, **kwargs):
+        # Use API key from the input field
+        if api_key and api_key.strip():
+            self.api_key = api_key.strip()
+            os.environ['FAL_KEY'] = self.api_key
+        
+        # Error handling
         if not self.api_key:
-            raise ValueError("API key is not set. Please check your config.ini file.")
+            raise ValueError("API key is not set. Please provide an API key in the 'api_key' input field.")
 
         arguments = {
             "prompt": prompt,
